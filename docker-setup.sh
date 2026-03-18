@@ -431,10 +431,23 @@ upsert_env "$ENV_FILE" \
 
 if [[ "$IMAGE_NAME" == "openclaw:local" ]]; then
   echo "==> Building Docker image: $IMAGE_NAME"
+
+  BUILD_ARGS=(
+    --build-arg "OPENCLAW_DOCKER_APT_PACKAGES=${OPENCLAW_DOCKER_APT_PACKAGES}"
+    --build-arg "OPENCLAW_EXTENSIONS=${OPENCLAW_EXTENSIONS}"
+    --build-arg "OPENCLAW_INSTALL_DOCKER_CLI=${OPENCLAW_INSTALL_DOCKER_CLI:-}"
+  )
+  # Forward proxy env vars into `docker build` so dependency downloads inside
+  # RUN steps use the same network path as the host.
+  for proxy_var in http_proxy https_proxy all_proxy no_proxy HTTP_PROXY HTTPS_PROXY ALL_PROXY NO_PROXY; do
+    proxy_val="${!proxy_var-}"
+    if [[ -n "$proxy_val" ]]; then
+      BUILD_ARGS+=(--build-arg "${proxy_var}=${proxy_val}")
+    fi
+  done
+
   docker build \
-    --build-arg "OPENCLAW_DOCKER_APT_PACKAGES=${OPENCLAW_DOCKER_APT_PACKAGES}" \
-    --build-arg "OPENCLAW_EXTENSIONS=${OPENCLAW_EXTENSIONS}" \
-    --build-arg "OPENCLAW_INSTALL_DOCKER_CLI=${OPENCLAW_INSTALL_DOCKER_CLI:-}" \
+    "${BUILD_ARGS[@]}" \
     -t "$IMAGE_NAME" \
     -f "$ROOT_DIR/Dockerfile" \
     "$ROOT_DIR"
